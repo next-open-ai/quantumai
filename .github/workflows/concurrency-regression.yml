@@ -1,4 +1,4 @@
-name: Concurrency Regression
+name: QuantumAI Concurrency Regression
 
 on:
   workflow_dispatch:
@@ -25,6 +25,7 @@ permissions:
 
 jobs:
   regression:
+    name: Run QuantumAI concurrency regression
     if: ${{ false }} # Temporarily disabled in GitHub Actions; keep workflow file for quick restore.
     runs-on: ubuntu-latest
     steps:

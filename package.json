@@ -46,12 +46,6 @@
     "sql.js": "^1.14.2",
     "ws": "^8.18.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild"
-    ]
-  },
   "scripts": {
     "dev": "pnpm --filter @workmate/desktop dev",
     "web:build": "pnpm build",

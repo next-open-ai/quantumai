@@ -1,4 +1,4 @@
-name: CI
+name: QuantumAI CI
 
 on:
   pull_request:
@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   verify:
+    name: Verify QuantumAI workspace
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +23,10 @@ jobs:
       - name: Verify pnpm version
         run: pnpm --version
       - run: pnpm install --frozen-lockfile
+      - name: Verify QuantumAI brand and default ports
+        run: pnpm brand:regression
+      - name: Verify simplified scheduled tasks
+        run: pnpm scheduled-tasks:regression
       - run: pnpm typecheck
       - run: pnpm build
       - name: AgentScope smoke
@@ -39,6 +44,7 @@ jobs:
       - run: pnpm size:check
 
   desktop-package:
+    name: Package QuantumAI (${{ matrix.artifact }})
     strategy:
       fail-fast: false
       matrix:
@@ -82,6 +88,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: desktop-package-${{ matrix.artifact }}
+          name: quantumai-desktop-${{ matrix.artifact }}
           path: apps/desktop/release/**
           if-no-files-found: warn

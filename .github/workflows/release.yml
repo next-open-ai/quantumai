@@ -1,4 +1,4 @@
-name: Release desktop app
+name: QuantumAI Desktop Release
 
 on:
   push:
@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   package:
+    name: Package QuantumAI (${{ matrix.artifact }})
     strategy:
       fail-fast: false
       matrix:
@@ -61,6 +62,10 @@ jobs:
         # sync-version.mjs reads GITHUB_REF_NAME itself. Do not use shell interpolation:
         # Windows runners use PowerShell, while macOS/Linux use Bash.
         run: node scripts/sync-version.mjs
+      - name: Verify QuantumAI brand and default ports
+        run: pnpm brand:regression
+      - name: Verify simplified scheduled tasks
+        run: pnpm scheduled-tasks:regression
       - name: AgentScope smoke
         run: pnpm agentscope:smoke
         env:
@@ -93,13 +98,14 @@ jobs:
         run: node scripts/collect-release-artifacts.mjs apps/desktop/release release-assets-final ${{ matrix.expected_extension }}
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact }}
+          name: quantumai-${{ matrix.artifact }}
           # Do not upload mac/win/linux-unpacked directories: they contain the
           # raw Electron application and are not user-downloadable installers.
           path: release-assets-final/**
           if-no-files-found: error
 
   publish:
+    name: Publish QuantumAI release
     needs: package
     runs-on: ubuntu-latest
     steps:
@@ -129,6 +135,7 @@ jobs:
           fi
 
   publish_npm:
+    name: Publish QuantumAI npm package
     needs: package
     runs-on: ubuntu-latest
     if: ${{ false }} # Temporarily disable npm publish automation.
