@@ -197,11 +197,6 @@ function looksLikeDocumentArtifactTask(userText: string, skills: AgentSkillRunti
   return /(pdf|docx?|word|ppt|slides?|excel|spreadsheet|report|itinerary|travel|guide|brochure|brief|readme|markdown|\.md|\.html|html|css|网站|页面|落地页|简报|验收|行程|旅游|旅行|攻略|报告|手册|文档|海报)/i.test(text);
 }
 
-/** Live market / quote pulls — not brand tone words like 金融质感 / 证券从业背景. */
-function looksLikeLiveMarketTask(userText: string) {
-  return /(实时行情|今日行情|股价|报价|收盘价|开盘价|成交量|指数走势|k线|大盘走势|涨跌幅|get_.*quote|stock\s*sdk|akshare|拉取.*证券数据|证券数据|fund net value|crypto\s*price)/i.test(userText);
-}
-
 function looksLikeWorkspaceWritingTask(userText: string) {
   return /(write_workspace_file|交付文件|写入.*\.md|产出.*页面|项目根|workspace root|output\/|html|css|简报|验收清单|readme)/i.test(userText);
 }
@@ -231,7 +226,7 @@ function sanitizeMcpPrefix(label: string) {
 /**
  * Drop MCP tools that burn steps without helping the task.
  * - filesystem always conflicts with write_workspace_file / project cwd
- * - finance MCPs stay only for live market pulls (not “金融质感” brand copy)
+ * - associated MCP tools remain available; the model decides whether to call them
  */
 export function filterMcpToolsetForTask(
   mcp: Awaited<ReturnType<typeof loadMcpToolset>>,
@@ -242,7 +237,6 @@ export function filterMcpToolsetForTask(
   const writing = looksLikeDocumentArtifactTask(userText, skills)
     || looksLikeWorkspaceWritingTask(userText)
     || Boolean(opts?.projectBound);
-  const liveMarket = looksLikeLiveMarketTask(userText);
   const needsFetch = /(竞品|调研|抓取|crawl|scrape|官网内容|网页正文)/i.test(userText);
   /** Local data-app instant programming — never burn steps on MCP fetch. */
   const dataAppBuild = /(data-apps\/|本机数据 API|custom-site|bind_data_app_custom_site|即时编程|按想法定制|单文件 HTML|output\/index\.html)/i.test(userText);
@@ -253,20 +247,15 @@ export function filterMcpToolsetForTask(
     blockedPrefixes.add('sequential_thinking');
     blockedPrefixes.add('sequentialthinking');
   }
-  if ((writing && !liveMarket) || dataAppBuild) {
-    blockedPrefixes.add('akshare');
-    blockedPrefixes.add('tushare');
-    blockedPrefixes.add('stock');
-    blockedPrefixes.add('stock_sdk');
-    blockedPrefixes.add('finance');
-    if (!needsFetch || dataAppBuild) blockedPrefixes.add('fetch');
-  }
+  // Never remove an associated domain MCP based on user wording. In
+  // particular, finance/market tools must remain visible in the authorized
+  // tool catalog even when the first turn is only a capability question.
+  if (dataAppBuild && !needsFetch) blockedPrefixes.add('fetch');
   if (!blockedPrefixes.size) return mcp;
 
   const keepTools = mcp.tools.filter((tool) => {
     const lower = tool.name.toLowerCase();
     if (dataAppBuild && /fetch/i.test(lower)) return false;
-    if (writing && !liveMarket && isFinanceLikeMcpName(tool.name)) return false;
     for (const prefix of blockedPrefixes) {
       if (lower.startsWith(`mcp_${prefix}_`)) return false;
       // Also drop tools whose sanitized connection label embeds the blocked name mid-string.
@@ -279,7 +268,6 @@ export function filterMcpToolsetForTask(
   const keepLabels = mcp.labels.filter((label) => {
     const sanitized = sanitizeMcpPrefix(label);
     if (blockedPrefixes.has(sanitized)) return false;
-    if (writing && !liveMarket && isFinanceLikeMcpName(label)) return false;
     return true;
   });
   const filtered = keepTools.length !== mcp.tools.length;
@@ -302,12 +290,10 @@ export function filterMcpConnectionsForTask<T extends { id?: string; name?: stri
   const writing = looksLikeDocumentArtifactTask(userText, [])
     || looksLikeWorkspaceWritingTask(userText)
     || Boolean(opts?.projectBound);
-  const liveMarket = looksLikeLiveMarketTask(userText);
   const dataAppBuild = /(data-apps\/|本机数据 API|custom-site|bind_data_app_custom_site|即时编程|按想法定制|单文件 HTML|output\/index\.html)/i.test(userText);
-  if ((!writing && !dataAppBuild) || liveMarket) return list;
+  if (!dataAppBuild) return list;
   return list.filter((item) => {
     const key = `${item.id || ''} ${item.name || ''}`;
-    if (isFinanceLikeMcpName(key)) return false;
     if (dataAppBuild && /fetch/i.test(key)) return false;
     return true;
   });

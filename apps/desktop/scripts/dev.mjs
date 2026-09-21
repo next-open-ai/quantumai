@@ -10,10 +10,14 @@ const repoRoot = path.resolve(desktopRoot, '..', '..');
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const apiPort = process.env.WORKMATE_API_PORT || '4428';
 const apiEntry = path.join(repoRoot, 'apps', 'api', 'dist', 'main.cjs');
-const dataDir = process.env.WORKMATE_DATA_DIR || path.join(homedir(), '.workmate');
+const dataDir = process.env.WORKMATE_DATA_DIR || path.join(homedir(), '.quantumai');
 const internalToken = process.env.WORKMATE_INTERNAL_TOKEN || randomBytes(24).toString('hex');
 const supervisorKey = createHash('sha256').update(`${repoRoot}:${apiPort}`).digest('hex').slice(0, 16);
 const supervisorLock = path.join(tmpdir(), `workmate-dev-${supervisorKey}.lock`);
+// Workmate and QuantumAI share the Electron app id during development. Give
+// this checkout its own Chromium/user-data directory so their Electron
+// single-instance locks do not make one dev process quit immediately.
+const devUserData = path.join(tmpdir(), `quantumai-dev-${supervisorKey}`);
 let ownsSupervisorLock = false;
 
 function processExists(pid) {
@@ -160,6 +164,7 @@ function startElectron() {
     detached: process.platform !== 'win32',
     env: sharedEnv({
       WORKMATE_RENDERER_URL: 'http://127.0.0.1:5273',
+      WORKMATE_DEV_USER_DATA: devUserData,
       // API is owned by this supervisor — Electron must not bind :4428 again.
       WORKMATE_API_EXTERNAL: '1',
     }),

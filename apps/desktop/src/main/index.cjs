@@ -15,6 +15,16 @@ const {
   stopSidecarProcess,
 } = require('./local-embedding/sidecar-manager.cjs');
 
+// The development build shares the packaged app id with Workmate. Isolate
+// Chromium state and Electron's single-instance lock per checkout in dev.
+if (process.env.WORKMATE_DEV_USER_DATA) {
+  try { app.setPath('userData', process.env.WORKMATE_DEV_USER_DATA); } catch (_) { /* use Electron default */ }
+} else {
+  // Quantummate is a separate product from Workmate. Keep Chromium state,
+  // safe-storage keys and renderer local storage in its own profile.
+  try { app.setPath('userData', path.join(app.getPath('home'), '.quantumai-app')); } catch (_) { /* use Electron default */ }
+}
+
 /**
  * Force-quit / crash leaves Chromium `exit_type=Crashed`, and the next launch
  * blocks the main thread on a modal "restore pages?" NSAlert — so startApi
@@ -159,7 +169,7 @@ let mainWindow;
 let apiProcess;
 let gatewayProcess = null;
 let database;
-const storageRoot = () => path.join(app.getPath('home'), '.workmate');
+const storageRoot = () => process.env.WORKMATE_DATA_DIR?.trim() || path.join(app.getPath('home'), '.quantumai');
 const databaseFile = () => path.join(storageRoot(), 'workmate.sqlite');
 /** @type {Map<string, string>} */
 const previewRoots = new Map();

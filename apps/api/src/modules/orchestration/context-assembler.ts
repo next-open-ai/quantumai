@@ -275,7 +275,10 @@ async function mcpConnectionsFor(
   // the legacy unscoped key, which made MCP tests pass in the UI but left chat
   // runs with no connectors at all.
   const scoped = ownerUserId?.trim() ? await kvJson(store, `user:${ownerUserId.trim()}:${MCP_KEY}`) : null;
-  const all = rows(scoped ?? await kvJson(store, MCP_KEY)) as Array<Record<string, unknown>>;
+  // An empty scoped record can be left behind by an older UI migration. In
+  // that case use the global catalog instead of masking the working defaults.
+  const scopedRows = rows(scoped) as Array<Record<string, unknown>>;
+  const all = (scopedRows.length > 0 ? scopedRows : rows(await kvJson(store, MCP_KEY))) as Array<Record<string, unknown>>;
   const wanted = new Set(prefs.mcpIds ?? []);
   const AUTO_SKIP = new Set(['mcp-baseline-playwright', 'mcp-baseline-chrome-devtools']);
   const out: ChatRunContext['mcpConnections'] = [];
@@ -312,6 +315,11 @@ async function mcpConnectionsFor(
     return 2;
   };
   out.sort((a, b) => rank(a.id) - rank(b.id));
+  console.info('[orch] resolved MCP connectors', {
+    ownerUserId: ownerUserId || null,
+    requested: [...wanted],
+    connectors: out.map((item) => item.id),
+  });
   return out.slice(0, 12);
 }
 
