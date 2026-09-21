@@ -11,6 +11,10 @@ import imgKnowledge from '../../../../docs/images/user-manual-4-knowledge.png?ur
 import imgEnvCheck from '../../../../docs/images/user-manual-5-env-check.png?url';
 import imgFaq from '../../../../docs/images/user-manual-6-faq.png?url';
 
+// Git may check Markdown out with CRLF on Windows. Normalize once so block and
+// heading parsing behaves identically in development and packaged builds.
+const normalizedManualSource = manualSource.replace(/\r\n?/g, '\n');
+
 /** 手册内相对路径图片 → 打包资源地址的映射（仅映射已在 md 中引用的截图）。 */
 const IMAGE_URLS: Record<string, string> = {
   'images/user-manual-1-overview.png': imgOverview,
@@ -71,7 +75,7 @@ function headingParts(line: string): { level: number; text: string; id: string }
 }
 
 function splitBlocks(): ManualBlock[] {
-  const lines = manualSource.split('\n');
+  const lines = normalizedManualSource.split('\n');
   const blocks: ManualBlock[] = [];
   let i = 0;
 
@@ -244,7 +248,7 @@ export function renderManualHtml(): string {
 
 export function manualHeadings(): ManualHeading[] {
   const list: ManualHeading[] = [];
-  for (const line of manualSource.split('\n')) {
+  for (const line of normalizedManualSource.split('\n')) {
     const parts = headingParts(line);
     if (parts) list.push({ level: parts.level, text: parts.text, id: parts.id });
   }

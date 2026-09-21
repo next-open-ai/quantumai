@@ -265,8 +265,17 @@ async function skillRuntimeFor(store: KeyValueStore, task: ProjectTask, tier: st
   return runtime;
 }
 
-async function mcpConnectionsFor(store: KeyValueStore, prefs: PrefsRow): Promise<ChatRunContext['mcpConnections']> {
-  const all = rows(await kvJson(store, MCP_KEY)) as Array<Record<string, unknown>>;
+async function mcpConnectionsFor(
+  store: KeyValueStore,
+  prefs: PrefsRow,
+  ownerUserId?: string | null,
+): Promise<ChatRunContext['mcpConnections']> {
+  // Desktop/web settings are user-scoped so one tenant/user cannot leak MCP
+  // credentials or tools into another. The previous implementation only read
+  // the legacy unscoped key, which made MCP tests pass in the UI but left chat
+  // runs with no connectors at all.
+  const scoped = ownerUserId?.trim() ? await kvJson(store, `user:${ownerUserId.trim()}:${MCP_KEY}`) : null;
+  const all = rows(scoped ?? await kvJson(store, MCP_KEY)) as Array<Record<string, unknown>>;
   const wanted = new Set(prefs.mcpIds ?? []);
   const AUTO_SKIP = new Set(['mcp-baseline-playwright', 'mcp-baseline-chrome-devtools']);
   const out: ChatRunContext['mcpConnections'] = [];
@@ -355,7 +364,7 @@ export async function resolveEmployeeMcpConnections(
 ): Promise<ChatRunContext['mcpConnections']> {
   const prefsAll = await readEmployeePrefsMap(store, ownerUserId);
   const prefs = (prefsAll[employeeId] ?? {}) as PrefsRow;
-  return mcpConnectionsFor(store, prefs);
+  return mcpConnectionsFor(store, prefs, ownerUserId);
 }
 
 /**
@@ -395,7 +404,7 @@ export async function resolveTaskContext(
     model: enableSearch ? { ...model, enableSearch: true } : model,
     skills: await skillRuntimeFor(store, task, tier),
     searchProviders: enableSearch ? [] : searchProvidersFor(prefs, secrets.search),
-    mcpConnections: await mcpConnectionsFor(store, prefs),
+    mcpConnections: await mcpConnectionsFor(store, prefs, ownerUserId),
     knowledgeBases: await knowledgeBasesFor(store, prefs),
     maxSteps,
     runTimeoutMs,

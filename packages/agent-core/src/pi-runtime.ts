@@ -199,7 +199,7 @@ function looksLikeDocumentArtifactTask(userText: string, skills: AgentSkillRunti
 
 /** Live market / quote pulls — not brand tone words like 金融质感 / 证券从业背景. */
 function looksLikeLiveMarketTask(userText: string) {
-  return /(实时行情|今日行情|股价|报价|指数走势|k线|大盘走势|涨跌幅|get_.*quote|stock\s*sdk|akshare|拉取.*证券数据|证券数据|fund net value|crypto\s*price)/i.test(userText);
+  return /(实时行情|今日行情|股价|报价|收盘价|开盘价|成交量|指数走势|k线|大盘走势|涨跌幅|get_.*quote|stock\s*sdk|akshare|拉取.*证券数据|证券数据|fund net value|crypto\s*price)/i.test(userText);
 }
 
 function looksLikeWorkspaceWritingTask(userText: string) {

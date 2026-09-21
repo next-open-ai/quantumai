@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { manualHeadings, renderManualHtml } from '../../app/user-manual';
 
 /**
@@ -9,10 +9,13 @@ import { manualHeadings, renderManualHtml } from '../../app/user-manual';
 const props = defineProps<{ anchor?: string | null }>();
 const emit = defineEmits<{ 'anchor-consumed': [] }>();
 
-const html = renderManualHtml();
-const headings = manualHeadings();
-const toc = headings.filter((item) => item.level === 2 || item.level === 3);
+const html = ref('');
+const headings = ref<ReturnType<typeof manualHeadings>>([]);
+const toc = computed(() => headings.value.filter((item) => item.level === 2 || item.level === 3));
 const contentRef = ref<HTMLElement | null>(null);
+const loading = ref(true);
+const loadError = ref('');
+let renderFrame = 0;
 
 function scrollToId(id: string, behavior: ScrollBehavior = 'smooth') {
   const el = document.getElementById(id);
@@ -27,27 +30,43 @@ function jumpTo(id: string) {
 function onArticleClick(event: MouseEvent) {
   const link = (event.target as HTMLElement).closest?.('a[href^="#"]');
   if (!link) return;
-  const id = decodeURIComponent((link.getAttribute('href') || '').slice(1));
+  const rawId = (link.getAttribute('href') || '').slice(1);
+  let id = rawId;
+  try { id = decodeURIComponent(rawId); } catch { /* malformed anchors remain usable */ }
   if (!id) return;
   event.preventDefault();
   scrollToId(id);
 }
 
 onMounted(() => {
-  const target = props.anchor;
-  if (target) {
-    // 等待 v-html 注入完成后再定位
-    requestAnimationFrame(() => {
-      scrollToId(target, 'auto');
-      emit('anchor-consumed');
-    });
-  }
+  // Let Vue paint the page shell and loading state before parsing/injecting the
+  // complete manual. This avoids a visibly frozen navigation click on slower
+  // Windows renderer processes.
+  renderFrame = requestAnimationFrame(async () => {
+    try {
+      headings.value = manualHeadings();
+      html.value = renderManualHtml();
+      await nextTick();
+      const target = props.anchor;
+      if (target) {
+        scrollToId(target, 'auto');
+        emit('anchor-consumed');
+      }
+    } catch (error) {
+      console.error('[manual] render failed', error);
+      loadError.value = error instanceof Error ? error.message : String(error);
+    } finally {
+      loading.value = false;
+    }
+  });
 });
+
+onBeforeUnmount(() => cancelAnimationFrame(renderFrame));
 
 watch(
   () => props.anchor,
   (next) => {
-    if (!next) return;
+    if (!next || loading.value) return;
     scrollToId(next);
     emit('anchor-consumed');
   },
@@ -103,7 +122,16 @@ watch(
           class="manual-prose min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]/90 px-5 py-6 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.45)] sm:px-8"
           @click="onArticleClick"
         >
-          <div v-html="html" />
+          <div v-if="loading" class="grid min-h-64 place-items-center text-sm text-[var(--muted)]" role="status">
+            正在加载用户手册…
+          </div>
+          <div v-else-if="loadError" class="grid min-h-64 place-items-center text-center" role="alert">
+            <div>
+              <p class="font-semibold text-rose-600">用户手册加载失败</p>
+              <p class="mt-2 max-w-lg text-xs text-[var(--muted)]">{{ loadError }}</p>
+            </div>
+          </div>
+          <div v-else v-html="html" />
         </article>
       </div>
     </div>

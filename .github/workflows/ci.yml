@@ -27,6 +27,18 @@ jobs:
         run: pnpm brand:regression
       - name: Verify simplified scheduled tasks
         run: pnpm scheduled-tasks:regression
+      - name: Verify cross-platform user manual packaging
+        run: pnpm manual:regression
+      - name: Verify Windows MCP runners
+        run: pnpm mcp:windows:regression
+      - name: Verify market MCP routing
+        run: pnpm mcp:market:regression
+      - name: Verify user-scoped MCP runtime
+        run: pnpm mcp:user-scope:regression
+      - name: Verify locale-aware agent prompts
+        run: pnpm locale:prompt:regression
+      - name: Verify chat Markdown rendering
+        run: pnpm chat:markdown:regression
       - run: pnpm typecheck
       - run: pnpm build
       - name: AgentScope smoke

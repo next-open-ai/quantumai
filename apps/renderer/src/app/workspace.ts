@@ -201,6 +201,12 @@ function labelEmployee(employee: Employee) {
 }
 
 function profileInstructions(employee: Employee, extra = '') {
+  const configuredLanguage = typeof document !== 'undefined' && document.documentElement.lang.toLowerCase().startsWith('en')
+    ? 'English'
+    : '简体中文';
+  const languageDirective = configuredLanguage === 'English'
+    ? 'The application language is English. Respond in English by default, including headings, explanations, progress updates, and tool-facing summaries. Only use another language when the user explicitly asks for it.'
+    : '当前应用语言为简体中文。默认使用简体中文回答，包括标题、解释、进度更新和工具结果摘要；只有用户明确要求时才切换为其他语言。';
   const role = employee.name?.trim()
     || (employee.id === 'general' ? 'General Assistant'
       : employee.id === 'research' ? 'Research Assistant'
@@ -217,7 +223,7 @@ function profileInstructions(employee: Employee, extra = '') {
   const researchMode = employee.id === 'research'
     ? ' Research output mode: deliver a concise Markdown or structured research brief with findings, evidence/source pointers, uncertainty, and next actions. Do not narrate planning or self-correction. Use only the minimum relevant tools; after a failed file operation, state the concrete blocker instead of repeatedly retrying the same write/read path.'
     : '';
-  return `You are QuantumAI's digital employee "${role}" (${employee.id}).${roleBrief} ${focus} Reply in the user's language.${researchMode} ${extra}`.trim();
+  return `You are QuantumAI's digital employee "${role}" (${employee.id}).${roleBrief} ${focus} ${languageDirective} Reply in the user's language when it differs only because the user explicitly requests another language.${researchMode} ${extra}`.trim();
 }
 
 function collaboratorFocus(employee: Employee) {
